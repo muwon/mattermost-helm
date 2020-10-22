@@ -18,7 +18,10 @@ cluster using the [Helm](https://helm.sh) package manager.
 
 ## Prerequisites
 
-- Kubernetes 1.8+ with Beta APIs enabled
+- Kubernetes 1.9+ with Beta APIs enabled
+- Helm v2/v3
+- [Tiller](https://rancher.com/docs/rancher/v2.x/en/installation/ha/helm-init/) (the Helm v2 server-side component) installed on the cluster
+- [Migrate from Helm v2 to Helm v3](https://helm.sh/blog/migrate-from-helm-v2-to-helm-v3/)
 
 ## Installing the Chart
 
@@ -26,6 +29,10 @@ To install the chart with the release name `my-release`:
 
 ```bash
 $ helm install --name my-release stable/mattermost-team-edition
+```
+ **Helm v3 command**
+```bash
+$ helm install my-release stable/mattermost-team-edition
 ```
 
 The command deploys Mattermost on the Kubernetes cluster in the default configuration. The [configuration](#configuration)
@@ -46,6 +53,7 @@ To uninstall/delete the `my-release` deployment:
 ```bash
 $ helm delete my-release
 ```
+
 The command removes all the Kubernetes components associated with the chart and deletes the release.
 
 ## Configuration
@@ -76,6 +84,9 @@ Parameter                             | Description                             
 `extraPodAnnotations`                 | Extra pod annotations to be used in the deployments                                             | `[]`
 `extraEnvVars`                        | Extra environments variables to be used in the deployments                                      | `[]`
 `extraInitContainers`                 | Additional init containers                                                                      | `[]`
+`service.annotations`                 | Service annotations                                                                             | `{}`
+`service.loadBalancerIP`              | A user-specified IP address for service type LoadBalancer to use as External IP (if supported)  | `nil`
+`service.loadBalancerSourceRanges`    | list of IP CIDRs allowed access to load balancer (if supported)                                 | `[]`
 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
@@ -115,7 +126,7 @@ configJSON:
 There is an option to use external database services (PostgreSQL or MySQL) for your Mattermost installation.
 If you use an external Database you will need to disable the MySQL chart in the `values.yaml`
 
-```Bash
+```yaml
 mysql:
   enabled: false
 ```
@@ -125,7 +136,7 @@ To use an external **PostgreSQL**, You need to set Mattermost **externalDB** con
 
 **IMPORTANT:** Make sure the DB is already created before deploying Mattermost services
 
-```Bash
+```yaml
 externalDB:
   enabled: true
   externalDriverType: "postgres"
@@ -137,11 +148,52 @@ To use an external **MySQL**, You need to set Mattermost **externalDB** config
 
 **IMPORTANT:** Make sure the DB is already created before deploying Mattermost services
 
-```Bash
+```yaml
 externalDB:
   enabled: true
   externalDriverType: "mysql"
   externalConnectionString: "<USERNAME>:<PASSWORD>@tcp(<HOST>:3306)/<DATABASE_NAME>?charset=utf8mb4,utf8&readTimeout=30s&writeTimeout=30s"
+```
+
+### Local development
+
+For local testing use [minikube](https://github.com/kubernetes/minikube)
+
+Create local cluster using with specified Kubernetes version (e.g. `1.15.6`)
+
+```bash
+$ minikube start --kubernetes-version v1.15.6
+```
+
+Initialize helm
+
+```bash
+$ helm init
+```
+Above command is not required for Helm v3
+
+Get dependencies
+
+```bash
+$ helm dependency update
+```
+
+Perform local installation
+
+```bash
+$ helm install . \
+    --set image.tag=5.12.4 \
+    --set mysql.mysqlUser=sampleUser \
+    --set mysql.mysqlPassword=samplePassword
+```
+
+ **Helm v3 command**
+```bash
+$ helm install . \
+    --generate-name \
+    --set image.tag=5.12.4 \
+    --set mysql.mysqlUser=sampleUser \
+    --set mysql.mysqlPassword=samplePassword
 ```
 
 #### Limitations

@@ -33,12 +33,42 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "{{ .Values.mattermostApp.service.metricsPort }}"
         prometheus.io/path: "/metrics"
+        {{- if .Values.mattermostApp.extraPodAnnotations }}
+        {{- .Values.mattermostApp.extraPodAnnotations | toYaml | nindent 8 }}
+        {{- end }}
     spec:
+      {{- if .Values.mattermostApp.antiAffinity.enabled}}
+      {{- if eq .Values.mattermostApp.antiAffinity.mode "hard" }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: "kubernetes.io/hostname"
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: {{ include "mattermost-enterprise-edition.name" . }}
+                  app.kubernetes.io/instance: {{ .Release.Name }}
+                  app.kubernetes.io/managed-by: {{ .Release.Service }}
+      {{- else if eq .Values.mattermostApp.antiAffinity.mode "soft" }}ר
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            podAffinityTerm:
+              topologyKey: kubernetes.io/hostname
+              labelSelector:
+                app.kubernetes.io/name: {{ include "mattermost-enterprise-edition.name" . }}
+                app.kubernetes.io/instance: {{ .Release.Name }}
+                app.kubernetes.io/managed-by: {{ .Release.Service }}
+      {{- end }}
+      {{- end }}
+      {{ if .Values.serviceAccount.create }}
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{ end }}
       initContainers:
       {{- if .Values.global.features.elasticsearch.enabled }}
       - name: init-elasticsearch
-        image: appropriate/curl:latest
-        imagePullPolicy: IfNotPresent
+        image: "{{ .Values.initContainerImage.repository }}:{{ .Values.initContainerImage.tag }}"
+        imagePullPolicy: {{ .Values.initContainerImage.imagePullPolicy }}
         command: [
           "sh",
           "-c",
@@ -46,8 +76,8 @@ spec:
       {{- end }}
       {{- if .Values.global.features.database.useInternal }}
       - name: init-mysql
-        image: appropriate/curl:latest
-        imagePullPolicy: IfNotPresent
+        image: "{{ .Values.initContainerImage.repository }}:{{ .Values.initContainerImage.tag }}"
+        imagePullPolicy: {{ .Values.initContainerImage.imagePullPolicy }}
         command: [
           "sh",
           "-c",
@@ -93,6 +123,8 @@ spec:
           value: "true"
 {{- end }}
 {{- if .Values.minio.enabled }}
+        - name: MM_FILESETTINGS_DRIVERNAME
+          value: "amazons3"
         - name: MM_FILESETTINGS_AMAZONS3ACCESSKEYID
           value: "{{ .Values.minio.accessKey }}"
         - name: MM_FILESETTINGS_AMAZONS3SECRETACCESSKEY
@@ -101,6 +133,8 @@ spec:
           value: "{{ .Values.minio.defaultBucket.name }}"
         - name: MM_FILESETTINGS_AMAZONS3ENDPOINT
           value: "{{ .Release.Name }}-minio:9000"
+        - name: MM_FILESETTINGS_AMAZONS3SSL
+          value: "false"
 {{- end }}
 {{- if .Values.global.features.jobserver.enabled }}
         - name: MM_JOBSETTINGS_RUNJOBS

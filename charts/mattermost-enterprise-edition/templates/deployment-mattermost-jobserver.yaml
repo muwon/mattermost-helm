@@ -30,11 +30,15 @@ spec:
         app.kubernetes.io/managed-by: {{ .Release.Service }}
         app.kubernetes.io/component: {{ .Values.global.features.jobserver.name }}
         helm.sh/chart: {{ include "mattermost-enterprise-edition.chart" . }}
+      annotations:
+        {{- if .Values.mattermostApp.extraPodAnnotations }}
+        {{- .Values.mattermostApp.extraPodAnnotations | toYaml | nindent 8 }}
+        {{- end }}
     spec:
       initContainers:
       - name: "init-mattermost-app"
-        image: "appropriate/curl:latest"
-        imagePullPolicy: "IfNotPresent"
+        image: "{{ .Values.initContainerImage.repository }}:{{ .Values.initContainerImage.tag }}"
+        imagePullPolicy: {{ .Values.initContainerImage.imagePullPolicy }}
         command: [
           "sh",
           "-c",

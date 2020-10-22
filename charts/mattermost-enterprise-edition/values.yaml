@@ -86,13 +86,18 @@ global:
       resultsUsername: ""
       resultsPassword: ""
 
+initContainerImage:
+  repository: appropriate/curl
+  tag: latest
+  imagePullPolicy: IfNotPresent
+
 # Mattermost deployment section.
 # Use to configure the deploymento the Mattermost app servers.
 mattermostApp:
   replicaCount: 2
   image:
     repository: mattermost/mattermost-enterprise-edition
-    tag: 5.15.0
+    tag: 5.28.1
     pullPolicy: IfNotPresent
 
   strategy:
@@ -122,8 +127,33 @@ mattermostApp:
       # - secretName: chart-example-tls
       #   hosts:
       #     - mattermost.example.com
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      nginx.ingress.kubernetes.io/proxy-buffering: "on"
+      nginx.ingress.kubernetes.io/proxy-body-size: 50m
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        proxy_cache mattermost_cache;
+        proxy_cache_revalidate on;
+        proxy_cache_min_uses 2;
+        proxy_cache_use_stale timeout;
+        proxy_cache_lock on;
 
-  resources: {}
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 2
+    targetMemoryUtilizationPercentage: 50
+    targetCPUUtilizationPercentage: 50
+
+  antiAffinity:
+    enabled: false
+    # can be hard/soft, affects weight
+    mode: ""
+    # can implement self affinty, add affinity at the correct location
+
+    resources: {}
     # limits:
     #   cpu: 100m
     #   memory: 300Mi
@@ -149,8 +179,8 @@ mattermostApp:
     #       do
     #         wget ${plugin_tar} -P /mattermost/plugins
     #         cd /mattermost/plugins
-    #         tar -xzvf ${plugin_tar}
-    #         rm -f ${plugin_tar}
+    #         tar -xzvf ${plugin_tar##*/}
+    #         rm -f ${plugin_tar##*/}
     #       done
     #   volumeMounts:
     #   # Need to match the volume mount for plugins volumes
@@ -177,7 +207,8 @@ mattermostApp:
     #   value: "true"
     # - name: MM_SERVICESETTINGS_ENABLECUSTOMEMOJI
     #   value: "true"
-
+  ## Additional pod annotations
+  extraPodAnnotations: {}
 # MySQL HA Section. Use this to configure MySQL.
 # If you are using an external DB, disable this.
 mysqlha:
@@ -285,3 +316,8 @@ prometheus:
     enabled: false
   pushgateway:
     enabled: false
+
+serviceAccount:
+  create: false
+  name:
+  annotations: {}
